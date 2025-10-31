@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Expense Tracker — Simple Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- PWA manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    \"name\":\"Expense Tracker\",\"short_name\":\"Expenses\",
+    \"start_url\":\".\",\"display\":\"standalone\",
+    \"background_color\":\"#0b1220\",\"theme_color\":\"#2563eb\",
+    \"icons\":[{\"src\":\"https://cdn-icons-png.flaticon.com/512/2919/2919600.png\",\"sizes\":\"192x192\",\"type\":\"image/png\"},
+              {\"src\":\"https://cdn-icons-png.flaticon.com/512/2919/2919600.png\",\"sizes\":\"512x512\",\"type\":\"image/png\"}]
+  }">
+  <meta name="theme-color" content="#2563eb">
+  <style>
+    :root{--bg:#f8f9fa;--text:#111827;--card:#fff;--muted:#6b7280;--accent:#2563eb;--accent-contrast:#fff;
+          --table-head:#007bff;--table-head-text:#fff;--row-hover:#f1f5f9;--summary-bg:#e9ecef;
+          --danger:#ef4444;--success:#10b981;}
+    body.dark{--bg:#0b1220;--text:#e6eef8;--card:#071023;--muted:#9fb0d1;--accent:#60a5fa;--accent-contrast:#071023;
+              --table-head:#0f1724;--table-head-text:#e6eef8;--row-hover:rgba(255,255,255,.03);
+              --summary-bg:rgba(255,255,255,.03);--danger:#f87171;--success:#34d399;}
+    html,body{height:100%;margin:0;}
+    body{font-family:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+         background:var(--bg);color:var(--text);transition:all .25s;padding:18px;}
+    h1{margin:0 0 12px;display:flex;align-items:center;gap:12px;justify-content:center;font-size:20px;}
+    #darkToggle{cursor:pointer;border:0;background:transparent;font-size:18px;color:var(--text);}
+    .container{max-width:960px;margin:14px auto;background:var(--card);border-radius:12px;padding:18px;
+               box-shadow:0 6px 20px rgba(2,6,23,.06);}
+    label{font-weight:600;color:var(--muted);display:block;margin-bottom:6px;}
+    input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(0,0,0,.06);
+                 background:transparent;color:var(--text);margin-bottom:12px;box-sizing:border-box;}
+    button{background:var(--accent);color:var(--accent-contrast);border:none;padding:10px 14px;
+           border-radius:8px;cursor:pointer;font-weight:600;}
+    button.secondary{background:#94a3b8;color:#fff;}
+    button.danger{background:var(--danger);color:#fff;}
+    button:active{transform:translateY(1px);}
+    .layout{display:grid;grid-template-columns:1fr 440px;gap:14px;}
+    @media(max-width:980px){.layout{grid-template-columns:1fr;}}
+    .card{background:var(--card);border-radius:10px;padding:12px;}
+    .top-row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;color:var(--text);}
+    thead th{text-align:left;padding:10px;background:var(--table-head);color:var(--table-head-text);position:sticky;top:0;}
+    tbody td{padding:10px;border-bottom:1px solid rgba(0,0,0,.06);}
+    tbody tr:hover{background:var(--row-hover);}
+    .small{color:var(--muted);font-size:13px;}
+    .summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+    .summary .s{background:var(--summary-bg);color:var(--text);padding:12px 16px;border-radius:10px;min-width:140px;text-align:center;}
+    canvas{width:100%!important;height:220px!important;margin-top:14px;}
+    #msg,#loginMsg{text-align:center;margin-top:8px;font-weight:600;}
+    #loginScreen,#app{display:none;flex-direction:column;align-items:center;justify-content:center;height:100vh;}
+    #userInfo{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600;}
+    .logoutBtn{font-size:12px;padding:4px 8px;}
+    .editBtn{font-size:11px;padding:3px 6px;}
+  </style>
+</head>
+<body>
+
+<!-- ==== LOGIN ==== -->
+<div id="loginScreen" style="display:flex;">
+  <div class="card" style="width:320px;">
+    <h1 style="justify-content:flex-start;">Login</h1>
+    <form id="loginForm">
+      <label>User ID</label>
+      <input id="loginUserId" type="text" placeholder="e.g. morey" required />
+      <label>Password</label>
+      <input id="loginPassword" type="password" placeholder="e.g. 1994" required />
+      <button type="submit">Login</button>
+      <p id="loginMsg"></p>
+    </form>
+    <div class="small" style="margin-top:16px;">
+      Demo account: <br>morey / 1994
+    </div>
+  </div>
+</div>
+
+<!-- ==== APP ==== -->
+<div id="app">
+  <h1>Expense Tracker <button id="darkToggle">Dark Mode</button>
+    <div id="userInfo">
+      <span id="currentUserId"></span>
+      <button class="secondary logoutBtn" id="logoutBtn">Logout</button>
+    </div>
+  </h1>
+
+  <div class="container">
+    <div class="layout">
+      <!-- LEFT -->
+      <div>
+        <div class="card">
+          <form id="expenseForm">
+            <input type="hidden" id="editRowIndex">
+            <label>Category</label>
+            <select id="category" required>
+              <option value="">Select category</option>
+              <option>Food</option><option>Transport</option><option>Shopping</option>
+              <option>Entertainment</option><option>Bills</option><option>Personal</option>
+              <option>Health</option><option>Other</option>
+            </select>
+
+            <label>Subcategory</label>
+            <select id="subcategory"><option value="">Select subcategory</option></select>
+
+            <label>Description <span class="small">(optional)</span></label>
+            <input id="description" type="text" placeholder="Coffee, Uber..." />
+
+            <label>Amount (₹)</label>
+            <input id="amount" type="number" min="0" step="0.01" required />
+
+            <label>Payment Mode</label>
+            <select id="paymentMode" required>
+              <option value="">Select payment mode</option>
+              <option>UPI</option><option>Cash</option><option>ICICI</option>
+              <option>Bank Transfer</option><option>HSBC</option><option>AXIS</option>
+            </select>
+
+            <div style="display:flex;gap:8px;">
+              <button type="submit" id="submitBtn">Add Expense</button>
+              <button type="button" id="cancelEdit" class="secondary" style="display:none;">Cancel</button>
+              <button type="button" id="clearBtn" class="secondary">Clear</button>
+            </div>
+            <p id="msg"></p>
+          </form>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+          <strong>Filters</strong>
+          <div style="margin-top:8px;">
+            <div class="small">Date / Category / Payment</div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <input id="fromDate" type="date" />
+              <input id="toDate" type="date" />
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <select id="filterCategory"><option value="">All categories</option></select>
+              <select id="filterSubcategory" disabled><option value="">All subcategories</option></select>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <select id="filterPayment"><option value="">All payment modes</option></select>
+              <button id="applyFilters">Apply</button>
+              <button id="clearFilters" class="secondary">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT (DASHBOARD) -->
+      <div>
+        <div class="card">
+          <div class="top-row">
+            <div><div class="small">Total Spent</div><div id="totalSpent" style="font-size:20px;font-weight:700;">₹0</div></div>
+            <div style="text-align:right;"><div class="small">Rows</div><div id="visibleCount" style="font-size:18px;font-weight:700;">0</div></div>
+          </div>
+          <div class="summary">
+            <div class="s" id="dailyTotal">Daily: ₹0</div>
+            <div class="s" id="weeklyTotal">Weekly: ₹0</div>
+            <div class="s" id="monthlyTotal">Monthly: ₹0</div>
+          </div>
+          <canvas id="catChart"></canvas>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+          <!-- AUTO‑REFRESH TEXT NEAR DASHBOARD -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong>Expenses</strong>
+            <div class="small" style="color:var(--muted);">
+              Auto‑refresh every 12 s
+            </div>
+          </div>
+          <div class="table-wrap" style="max-height:360px;overflow:auto;">
+            <table id="expenseTable">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Category</th><th>Subcategory</th><th>Description</th>
+                  <th style="text-align:right;">Amount</th><th>Payment</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="small" id="tableSummary">Showing 0 rows • Total ₹0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==== CONFIG ==== */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdYNdmUk1kUlwPhFbAcXWVMRHh5srxS98mT8Ry-tDk_wDPD-xOlTGhC4PD95LIc7WCgg/exec";   // ← PASTE YOUR DEPLOYED URL HERE
+const USERS = { "morey": "1994" };   // add more users here
+
+/* ==== STATE ==== */
+let currentUserId = null;
+let editingRow = null;
+
+/* ==== LOGIN ==== */
+document.getElementById('loginScreen').style.display = 'flex';
+document.getElementById('loginForm').onsubmit = e => {
+  e.preventDefault();
+  const uid = document.getElementById('loginUserId').value.trim();
+  const pwd = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('loginMsg');
+  if (USERS[uid] && USERS[uid] === pwd) {
+    currentUserId = uid;
+    document.getElementById('currentUserId').textContent = uid;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadData();
+  } else {
+    msg.textContent = 'Invalid credentials';
+    msg.style.color = 'red';
+  }
+};
+document.getElementById('logoutBtn').onclick = () => {
+  currentUserId = null; editingRow = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginForm').reset();
+  document.getElementById('loginMsg').textContent = '';
+};
+
+/* ==== SUBCATEGORIES & PAYMENTS ==== */
+const subcategoriesMap = {
+  Food:["Breakfast","Lunch","Dinner","Snacks","Coffee","Groceries"],
+  Transport:["Cab","Fuel","Bus","Train","Flight"],
+  Shopping:["Clothes","Groceries","Electronics","Accessories"],
+  Entertainment:["Movies","Games","Events","Subscriptions"],
+  Bills:["Electricity","Internet","Rent","Mobile"],
+  Personal:["Salon","Grooming","Gift","Other"],
+  Health:["Medicines","Doctor","Fitness","Insurance"],
+  Other:["Miscellaneous","Donation","Uncategorized"]
+};
+const paymentOptions = ["UPI","Cash","ICICI","Bank Transfer","HSBC","AXIS"];
+
+/* ==== DOM ==== */
+const els = {
+  cat: document.getElementById('category'),
+  sub: document.getElementById('subcategory'),
+  desc: document.getElementById('description'),
+  amt: document.getElementById('amount'),
+  pay: document.getElementById('paymentMode'),
+  msg: document.getElementById('msg'),
+  tbody: document.querySelector('#expenseTable tbody'),
+  total: document.getElementById('totalSpent'),
+  rows: document.getElementById('visibleCount'),
+  sum: document.getElementById('tableSummary'),
+  fCat: document.getElementById('filterCategory'),
+  fSub: document.getElementById('filterSubcategory'),
+  fPay: document.getElementById('filterPayment'),
+  from: document.getElementById('fromDate'),
+  to: document.getElementById('toDate'),
+  ctx: document.getElementById('catChart').getContext('2d')
+};
+let chart = null;
+let all = [], visible = [];
+
+/* ==== THEME ==== */
+(()=>{ const d=localStorage.getItem('exp_dark')==='1'; if(d)document.body.classList.add('dark');
+  document.getElementById('darkToggle').textContent=d?'Light Mode':'Dark Mode';
+})();
+document.getElementById('darkToggle').onclick=()=>{
+  document.body.classList.toggle('dark');
+  const d=document.body.classList.contains('dark');
+  localStorage.setItem('exp_dark',d?'1':'0');
+  document.getElementById('darkToggle').textContent=d?'Light Mode':'Dark Mode';
+};
+
+/* ==== CATEGORY → SUBCATEGORY ==== */
+els.cat.onchange=()=>{
+  const c=els.cat.value;
+  els.sub.innerHTML="<option value=''>Select subcategory</option>";
+  if(subcategoriesMap[c]){
+    subcategoriesMap[c].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; els.sub.appendChild(o); });
+    els.sub.disabled=false;
+  }else els.sub.disabled=true;
+};
+
+/* ==== FILTER POPULATION ==== */
+(()=>{ els.fCat.innerHTML="<option value=''>All categories</option>";
+  Object.keys(subcategoriesMap).forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; els.fCat.appendChild(o); });
+})();
+els.fCat.onchange=()=>{
+  const c=els.fCat.value;
+  els.fSub.innerHTML="<option value=''>All subcategories</option>"; els.fSub.disabled=true;
+  if(c && subcategoriesMap[c]){
+    subcategoriesMap[c].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; els.fSub.appendChild(o); });
+    els.fSub.disabled=false;
+  }
+};
+(()=>{ els.fPay.innerHTML="<option value=''>All payment modes</option>";
+  paymentOptions.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; els.fPay.appendChild(o); });
+})();
+
+/* ==== LOAD DATA ==== */
+async function loadData(){
+  if(!currentUserId) return;
+  try{
+    const r = await fetch(`${SCRIPT_URL}?action=get&userId=${encodeURIComponent(currentUserId)}`);
+    if(!r.ok) throw new Error('net');
+    const data = await r.json();
+
+    all = data.map(e=>({
+      rowIndex: e.rowIndex,
+      ts:       e.timestamp,
+      cat:      e.category||'',
+      sub:      e.subcategory||'',
+      desc:     e.description||'',
+      amt:      Number(e.amount)||0,
+      pay:      e.payment||''
+    }));
+    populateDynamicFilters();
+    applyFilters();
+  }catch{
+    els.msg.textContent='Load failed – check SCRIPT_URL';
+    els.msg.style.color='orange';
+  }
+}
+function populateDynamicFilters(){
+  const cats = new Set(); all.forEach(e=>e.cat && cats.add(e.cat));
+  els.fCat.innerHTML="<option value=''>All categories</option>";
+  [...cats].sort().forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; els.fCat.appendChild(o); });
+}
+
+/* ==== FILTER LOGIC ==== */
+function applyFilters(){
+  let list = all.slice();
+  const from = els.from.value ? new Date(els.from.value+"T00:00:00") : null;
+  const to   = els.to.value   ? new Date(els.to.value+"T23:59:59")   : null;
+  if(from) list = list.filter(e=>new Date(e.ts)>=from);
+  if(to)   list = list.filter(e=>new Date(e.ts)<=to);
+  if(els.fCat.value) list = list.filter(e=>e.cat===els.fCat.value);
+  if(els.fSub.value) list = list.filter(e=>e.sub===els.fSub.value);
+  if(els.fPay.value) list = list.filter(e=>e.pay===els.fPay.value);
+  visible = list;
+  renderTable(); renderStats(); renderChart(); updateSummary(visible);
+}
+
+/* ==== RENDER TABLE ==== */
+function renderTable(){
+  const rows = visible.slice().reverse();
+  els.tbody.innerHTML='';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date(r.ts).toLocaleString()}</td>
+      <td>${r.cat||'-'}</td>
+      <td>${r.sub||'-'}</td>
+      <td>${r.desc||'-'}</td>
+      <td style="text-align:right;">₹${r.amt.toFixed(2)}</td>
+      <td>${r.pay||'-'}</td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="editBtn secondary" data-row="${r.rowIndex}">Edit</button>
+        <button class="danger" data-row="${r.rowIndex}">Delete</button>
+      </td>`;
+    els.tbody.appendChild(tr);
+  });
+  els.tbody.querySelectorAll('.editBtn').forEach(b=>b.onclick=()=>startEdit(b.dataset.row));
+  els.tbody.querySelectorAll('button.danger').forEach(b=>b.onclick=()=>deleteExpense(b.dataset.row));
+}
+
+/* ==== EDIT ==== */
+function startEdit(rowIdx){
+  const exp = all.find(e=>e.rowIndex===Number(rowIdx));
+  if(!exp) return;
+  editingRow = rowIdx;
+  els.cat.value = exp.cat;
+  els.cat.dispatchEvent(new Event('change'));
+  setTimeout(()=>{ els.sub.value = exp.sub; },0);
+  els.desc.value = exp.desc;
+  els.amt.value  = exp.amt;
+  els.pay.value  = exp.pay;
+  document.getElementById('editRowIndex').value = rowIdx;
+  document.getElementById('submitBtn').textContent = 'Update Expense';
+  document.getElementById('cancelEdit').style.display = 'inline-block';
+}
+document.getElementById('cancelEdit').onclick = () => {
+  editingRow = null;
+  document.getElementById('expenseForm').reset();
+  els.sub.disabled = true;
+  document.getElementById('submitBtn').textContent = 'Add Expense';
+  document.getElementById('cancelEdit').style.display = 'none';
+};
+
+/* ==== ADD / UPDATE ==== */
+document.getElementById('expenseForm').onsubmit = async e=>{
+  e.preventDefault();
+  els.msg.textContent='Saving...'; els.msg.style.color='blue';
+  const payload = new URLSearchParams();
+  payload.append('userId', currentUserId);
+  payload.append('category', els.cat.value);
+  payload.append('subcategory', els.sub.value||'');
+  payload.append('description', els.desc.value||'');
+  payload.append('amount', els.amt.value);
+  payload.append('payment', els.pay.value);
+  if(editingRow){
+    payload.append('action','edit');
+    payload.append('rowIndex', editingRow);
+  }else{
+    payload.append('action','add');
+  }
+  try{
+    const r = await fetch(SCRIPT_URL,{method:'POST',body:payload});
+    const txt = await r.text();
+    if(txt.toLowerCase().includes('success')||txt.toLowerCase().includes('updated')){
+      els.msg.textContent = editingRow?'Updated!':'Added!';
+      els.msg.style.color='green';
+      e.target.reset(); els.sub.disabled=true;
+      document.getElementById('submitBtn').textContent='Add Expense';
+      document.getElementById('cancelEdit').style.display='none';
+      editingRow=null;
+      setTimeout(loadData,800);
+    }else throw '';
+  }catch{
+    els.msg.textContent='Failed'; els.msg.style.color='red';
+  }
+};
+
+/* ==== DELETE ==== */
+async function deleteExpense(row){
+  if(!confirm('Delete this expense?')) return;
+  const p = new URLSearchParams();
+  p.append('action','delete');
+  p.append('userId',currentUserId);
+  p.append('rowIndex',row);
+  try{
+    const r = await fetch(SCRIPT_URL,{method:'POST',body:p});
+    const txt = await r.text();
+    if(txt.toLowerCase().includes('deleted')){
+      els.msg.textContent='Deleted'; els.msg.style.color='red';
+      await loadData();
+    }
+  }catch{ els.msg.textContent='Delete error'; els.msg.style.color='red'; }
+}
+
+/* ==== STATS / CHART / SUMMARY ==== */
+function renderStats(){
+  const tot = visible.reduce((s,e)=>s+e.amt,0);
+  els.total.textContent = `₹${tot.toFixed(2)}`;
+  els.rows.textContent = visible.length;
+  els.sum.textContent = `Showing ${visible.length} rows • Total ₹${tot.toFixed(2)}`;
+}
+function renderChart(){
+  const map = {};
+  visible.forEach(e=>{ const c=e.cat||'Uncategorized'; map[c]=(map[c]||0)+e.amt; });
+  const labels=Object.keys(map), data=Object.values(map);
+  if(chart) chart.destroy();
+  chart = new Chart(els.ctx,{type:'pie',
+    data:{labels,datasets:[{data,backgroundColor:['#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#f97316']}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+}
+function updateSummary(data){
+  const now=new Date(), today=now.toDateString();
+  const weekStart=new Date(now); weekStart.setDate(now.getDate()-now.getDay());
+  const month=now.getMonth(), year=now.getFullYear();
+  let d=0,w=0,m=0;
+  data.forEach(e=>{
+    const dt=new Date(e.ts);
+    const a=e.amt;
+    if(dt.toDateString()===today) d+=a;
+    if(dt>=weekStart) w+=a;
+    if(dt.getMonth()===month && dt.getFullYear()===year) m+=a;
+  });
+  document.getElementById('dailyTotal').textContent=`Daily: ₹${d.toFixed(2)}`;
+  document.getElementById('weeklyTotal').textContent=`Weekly: ₹${w.toFixed(2)}`;
+  document.getElementById('monthlyTotal').textContent=`Monthly: ₹${m.toFixed(2)}`;
+}
+
+/* ==== FILTER BUTTONS ==== */
+document.getElementById('applyFilters').onclick=e=>{e.preventDefault();applyFilters();};
+document.getElementById('clearFilters').onclick=e=>{
+  e.preventDefault();
+  els.from.value=''; els.to.value='';
+  els.fCat.value=''; els.fSub.value=''; els.fSub.disabled=true;
+  els.fPay.value='';
+  applyFilters();
+};
+document.getElementById('clearBtn').onclick=()=>{ document.getElementById('expenseForm').reset(); els.sub.disabled=true; };
+
+/* ==== AUTO‑REFRESH EVERY 12 SECONDS ==== */
+setInterval(() => {
+  if (currentUserId) loadData();
+}, 12000);
+
+/* ==== PWA INSTALL ==== */
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const btn=document.createElement('button');
+  btn.textContent='Install App';
+  btn.style.position='fixed'; btn.style.bottom='20px'; btn.style.right='20px';
+  btn.style.zIndex='1000';
+  btn.onclick=()=>{ deferredPrompt.prompt(); };
+  document.body.appendChild(btn);
+});
+</script>
+</body>
+</html>
